@@ -1,0 +1,94 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hospitals</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&callback=initMap&libraries=places" async defer></script>
+    <style>
+        .hospital-name {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .map {
+            height: 500px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5" >
+    <h2>Estimated Travel Times and Directions</h2>
+    <p>From Joint Base Andrews to selected hospitals and back:</p>
+    <div class="row">
+        {% for name in hospitals %}
+        <div class="col-md-6 mt-4">
+            <div class="hospital-name"><b>{{name}}</b></div>
+            <div class="map" id="map_{{ loop.index }}"></div>
+            <p id="time_{{ loop.index }}"><small>Loading travel time...</small></p>
+            <div id="outbound_{{ loop.index }}">Calculating Outbound time:</div>
+            <p class="mean"> <br>Interarrival Time per person:{{ mean }} mins </p>
+            <div id="inbound_{{ loop.index }}">Calculating Return time:</div>
+            
+            
+         
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script>
+    function initMap() {
+        const directionsService = new google.maps.DirectionsService();
+        const base = {lat: 38.8033, lng: -76.8719};  // Joint Base Andrews
+
+        {% for name in hospitals %}
+        const map_{{ loop.index }} = new google.maps.Map(document.getElementById('map_{{ loop.index }}'), {
+            zoom: 12,
+            center: base
+        });
+        const directionsDisplay_{{ loop.index }} = new google.maps.DirectionsRenderer();
+        
+    // Suppress default markers by adjusting the renderer options
+    directionsDisplay_{{ loop.index }}.setOptions({
+        suppressMarkers: true
+    });
+    directionsDisplay_{{ loop.index }}.setMap(map_{{ loop.index }});
+    
+    // Custom marker for base location
+    new google.maps.Marker({
+        position: base,
+        label: "JBA",
+        map: map_{{ loop.index }}
+    });
+
+    
+
+        directionsService.route({
+            origin: base,
+            destination: base,
+            travelMode: 'DRIVING',
+            waypoints: [{location: "{{ name }} ({{ hospital_abbs[loop.index0] }})", stopover: true}],
+            optimizeWaypoints: true,
+        }, function(response, status) {
+            if (status === 'OK') {
+                directionsDisplay_{{ loop.index }}.setDirections(response);
+                const outboundLeg = response.routes[0].legs[0];
+                const returnLeg = response.routes[0].legs[1];
+                const me = {{mean}};
+                const totalDuration = outboundLeg.duration.value + returnLeg.duration.value;
+                console.log(me);
+                const totalDurationText = Math.ceil(totalDuration/60 + me) + " mins";
+                document.getElementById('time_{{ loop.index }}').textContent = "Total travel time: " + totalDurationText;
+                document.getElementById('outbound_{{ loop.index }}').textContent = "Outbound: " + (outboundLeg.duration.value/60).toFixed(1) + " mins " ; //converted from seconds
+                document.getElementById('inbound_{{ loop.index }}').textContent = "Return: " + (returnLeg.duration.value/60).toFixed(1) + " mins"; // converted from secondds 
+            } else {
+                console.error('Directions request failed due to ' + status);
+            }
+        });
+        {% endfor %}
+    }
+</script>
+</body>
+</html>
